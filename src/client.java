@@ -1,59 +1,62 @@
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.DataInputStream;
 import java.io.PrintStream;
-import java.io.PrintWriter;
-import java.net.InetAddress;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.IOException;
 import java.net.Socket;
+import java.net.UnknownHostException;
 
-public class client {
+public class client implements Runnable {
 
-    public static void main(String args[]) throws IOException {
+    private static Socket clientSocket = null;
+    private static PrintStream os = null;
+    private static DataInputStream is = null;
+    private static BufferedReader inputLine = null;
+    private static boolean closed = false;
 
-        InetAddress address = InetAddress.getLocalHost();
-        Socket s1 = null;
-        String line = null;
-        BufferedReader br = null;
-        BufferedReader is = null;
-        PrintStream os = null;
+    public static void main(String[] args) {
+        int portNumber = 2220;
+        String host = "localhost";
 
         try {
-            s1 = new Socket(address, 4445); // You can use static final constant PORT_NUM
-            br = new BufferedReader(new InputStreamReader(System.in));
-            is = new BufferedReader(new InputStreamReader(s1.getInputStream()));
-            os = new PrintStream(s1.getOutputStream());
+            clientSocket = new Socket(host, portNumber);
+            inputLine = new BufferedReader(new InputStreamReader(System.in));
+            os = new PrintStream(clientSocket.getOutputStream());
+            is = new DataInputStream(clientSocket.getInputStream());
+        } catch (UnknownHostException e) {
+            System.err.println("Don't know about host " + host);
         } catch (IOException e) {
-            e.printStackTrace();
-            System.err.print("IO Exception");
+            System.err.println("Couldn't get I/O for the connection to the host " + host);
         }
 
-        System.out.println("Client Address : " + address);
-        System.out.println("Enter Data to echo Server ( Enter QUIT to end):");
-
-        String response = null;
-        try {
-            line = br.readLine();
-            while (line.compareTo("QUIT") != 0) {
-                os.println(line);
-                os.flush();
-                response = is.readLine();
-                System.out.println("Server Response : " + response);
-                line = br.readLine();
+        if (clientSocket != null && os != null && is != null) {
+            try {
+                new Thread(new client()).start();
+                while (!closed) {
+                    os.println(inputLine.readLine().trim());
+                }
+                os.close();
+                is.close();
+                clientSocket.close();
+            } catch (IOException e) {
+                System.err.println("IOException:  " + e);
             }
-
-        } catch (IOException e) {
-            e.printStackTrace();
-            System.out.println("Socket read Error");
-        } finally {
-
-            is.close();
-            os.close();
-            br.close();
-            s1.close();
-            System.out.println("Connection Closed");
-
         }
+    }
 
+    public void run() {
+        String responseLine;
+        try {
+            while ((responseLine = is.readLine()) != null) {
+                System.out.println(responseLine);
+                if (responseLine.indexOf("Bye") != -1) {
+                    break;
+                }
+            }
+            closed = true;
+        } catch (IOException e) {
+            System.err.println("IOException:  " + e);
+        }
     }
 }

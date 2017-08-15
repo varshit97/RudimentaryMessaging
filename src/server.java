@@ -1,111 +1,126 @@
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.DataInputStream;
 import java.io.PrintStream;
-import java.io.PrintWriter;
-import java.net.ServerSocket;
+import java.io.IOException;
 import java.net.Socket;
+import java.net.ServerSocket;
 
 public class server {
-    public static Socket clientSocket[] = new Socket[2];
-    public static int count = 0;
-    
+
+    private static ServerSocket serverSocket = null;
+    private static Socket clientSocket = null;
+
+    private static final int maxClientsCount = 2;
+    private static final clientThread[] threads = new clientThread[maxClientsCount];
+
     public static void main(String args[]) {
 
-        Socket s = null;
-        ServerSocket ss2 = null;
-        System.out.println("Server Listening......");
+        int portNumber = 2220;
+        System.out.println("Server is running on port " + portNumber);
+
         try {
-            ss2 = new ServerSocket(4445); // can also use static final PORT_NUM , when defined
-
+            serverSocket = new ServerSocket(portNumber);
         } catch (IOException e) {
-            e.printStackTrace();
-            System.out.println("Server error");
-
+            System.out.println(e);
         }
 
-        while (count != 2) {
+        while (true) {
             try {
-                s = ss2.accept();
-                clientSocket[count] = s;
-                count++;
-                System.out.println("connection Established " + count);
-            } 
-            catch (Exception e) {
-                e.printStackTrace();
-                System.out.println("Connection Error");
-
+                clientSocket = serverSocket.accept();
+                int i = 0;
+                for (i = 0; i < maxClientsCount; i++) {
+                    if (threads[i] == null) {
+                        (threads[i] = new clientThread(clientSocket, threads)).start();
+                        break;
+                    }
+                }
+                if (i == maxClientsCount) {
+                    PrintStream os = new PrintStream(clientSocket.getOutputStream());
+                    os.println("Server too busy. Try later.");
+                    os.close();
+                    clientSocket.close();
+                }
+            } catch (IOException e) {
+                System.out.println(e);
             }
         }
-        int count = 0;
-        ServerThread st = new ServerThread(clientSocket[0], clientSocket, 1);
-        ServerThread st1 = new ServerThread(clientSocket[1], clientSocket, 0);
-        st.start();
-        st1.start();
     }
 }
 
-class ServerThread extends Thread {
+class clientThread extends Thread {
 
-    String line = null;
-    BufferedReader is = null;
-    PrintStream os = null;
-    Socket s = null;
-    Socket clientSocket[] = null;
-    int index = 0;
-    
-    public ServerThread(Socket s, Socket clientSocket[], int index) {
-        this.s = s;
+    private String clientName = null;
+    private DataInputStream is = null;
+    private PrintStream os = null;
+    private Socket clientSocket = null;
+    private final clientThread[] threads;
+    private int maxClientsCount;
+
+    public clientThread(Socket clientSocket, clientThread[] threads) {
         this.clientSocket = clientSocket;
-        this.index = index;
+        this.threads = threads;
+        maxClientsCount = threads.length;
     }
 
-    @Override
     public void run() {
-        try {
-            is = new BufferedReader(new InputStreamReader(this.s.getInputStream()));
-            os = new PrintStream(this.clientSocket[index].getOutputStream());
+        int maxClientsCount = this.maxClientsCount;
+        clientThread[] threads = this.threads;
 
+        try {
+            is = new DataInputStream(clientSocket.getInputStream());
+            os = new PrintStream(clientSocket.getOutputStream());
+            String name;
+            os.println("Enter your name.");
+            name = is.readLine().trim();
+
+            synchronized (this) {
+                for (int i = 0; i < maxClientsCount; i++) {
+                    if (threads[i] != null && threads[i] == this) {
+                        clientName = "@" + name;
+                        break;
+                    }
+                }
+                for (int i = 0; i < maxClientsCount; i++) {
+                    if (threads[i] != null && threads[i] != this) {
+                        threads[i].os.println(name + " is online");
+                    }
+                }
+            }
+
+            while (true) {
+                String line = is.readLine();
+                if (line.startsWith("quit")) {
+                    break;
+                }
+                synchronized (this) {
+                for (int i = 0; i < maxClientsCount; i++) {
+                      if (threads[i] != null && threads[i] != this && threads[i].clientName != null) {
+                          threads[i].os.println("<" + name + "> " + line);
+                      }
+                    }
+                }
+            }
+            
+            synchronized (this) {
+                for (int i = 0; i < maxClientsCount; i++) {
+                    if (threads[i] != null && threads[i] != this
+                            && threads[i].clientName != null) {
+                        threads[i].os.println(name + " left");
+                    }
+                }
+            }
+            os.println("Bye " + name);
+            synchronized (this) {
+                for (int i = 0; i < maxClientsCount; i++) {
+                    if (threads[i] == this) {
+                        threads[i] = null;
+                    }
+                }
+            }
+            is.close();
+            os.close();
+            clientSocket.close();
         } catch (IOException e) {
-            System.out.println("IO error in server thread");
         }
-
-        try {
-            line = is.readLine();
-            while (line.compareTo("QUIT") != 0) {
-                os.println(line);
-                os.flush();
-                System.out.println("Response to Client" + index + " : " + line);
-                line = is.readLine();
-            }
-        } catch (IOException e) {
-
-            line = this.getName(); //reused String line for getting thread name
-            System.out.println("IO Error/ Client " + line + " terminated abruptly");
-        } catch (NullPointerException e) {
-            line = this.getName(); //reused String line for getting thread name
-            System.out.println("Client " + line + " Closed");
-        } finally {
-            try {
-                System.out.println("Connection Closing..");
-                if (is != null) {
-                    is.close();
-                    System.out.println(" Socket Input Stream Closed");
-                }
-
-                if (os != null) {
-                    os.close();
-                    System.out.println("Socket Out Closed");
-                }
-                if (s != null) {
-                    s.close();
-                    System.out.println("Socket Closed");
-                }
-
-            } catch (IOException ie) {
-                System.out.println("Socket Close Error");
-            }
-        }//end finally
     }
 }
