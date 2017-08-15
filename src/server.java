@@ -1,9 +1,20 @@
 
+import java.io.BufferedInputStream;
 import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.ServerSocket;
+import java.net.DatagramSocket;
+import java.net.DatagramPacket;
+import java.io.FileOutputStream;
+import java.net.InetAddress;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileWriter;
+import java.io.PrintWriter;
 
 public class server {
 
@@ -92,19 +103,31 @@ class clientThread extends Thread {
                 if (line.startsWith("quit")) {
                     break;
                 }
+                String filename = null;
                 synchronized (this) {
-                for (int i = 0; i < maxClientsCount; i++) {
-                      if (threads[i] != null && threads[i] != this && threads[i].clientName != null) {
-                          threads[i].os.println("<" + name + "> " + line);
-                      }
+                    for (int i = 0; i < maxClientsCount; i++) {
+                        if (threads[i] != null && threads[i] != this && threads[i].clientName != null) {
+                            threads[i].os.println("<" + name + "> " + line);
+                        }
+                    }
+                }
+                if (line.startsWith("send")) {
+                    filename = line.split("\\s+")[1];
+                    receiveFile();
+                    synchronized (this) {
+                        for (int i = 0; i < maxClientsCount; i++) {
+                            if (threads[i] != null && threads[i] != this && threads[i].clientName != null) {
+                                sendFile(threads[i].clientSocket, filename);
+                                threads[i].os.println("file received");
+                            }
+                        }
                     }
                 }
             }
-            
+
             synchronized (this) {
                 for (int i = 0; i < maxClientsCount; i++) {
-                    if (threads[i] != null && threads[i] != this
-                            && threads[i].clientName != null) {
+                    if (threads[i] != null && threads[i] != this && threads[i].clientName != null) {
                         threads[i].os.println(name + " left");
                     }
                 }
@@ -121,6 +144,57 @@ class clientThread extends Thread {
             os.close();
             clientSocket.close();
         } catch (IOException e) {
+        }
+    }
+
+    public void receiveFile() {
+        try {
+            int bytesRead;
+
+            DataInputStream clientData = new DataInputStream(clientSocket.getInputStream());
+
+            String fileName = clientData.readUTF();
+            OutputStream output = new FileOutputStream(("received_from_client_" + fileName));
+            long size = clientData.readLong();
+            byte[] buffer = new byte[4096];
+            while (size > 0 && (bytesRead = clientData.read(buffer, 0, (int) Math.min(buffer.length, size))) != -1) {
+                output.write(buffer, 0, bytesRead);
+                size -= bytesRead;
+            }
+            output.flush();
+            output.close();
+
+            System.out.println("File " + fileName + " received from client.");
+
+        } catch (IOException ex) {
+            System.err.println("Error." + ex);
+        }
+    }
+
+    public void sendFile(Socket clientSocket, String fileName) {
+        try {
+
+            File myFile = new File(fileName);
+            byte[] mybytearray = new byte[(int) myFile.length()];
+
+            FileInputStream fis = new FileInputStream(myFile);
+            BufferedInputStream bis = new BufferedInputStream(fis);
+
+            DataInputStream dis = new DataInputStream(bis);
+            dis.readFully(mybytearray, 0, mybytearray.length);
+
+            OutputStream os = clientSocket.getOutputStream();
+
+            DataOutputStream dos = new DataOutputStream(os);
+            dos.writeUTF(myFile.getName());
+            dos.writeLong(mybytearray.length);
+            dos.write(mybytearray, 0, mybytearray.length);
+            dos.flush();
+
+            System.out.println("File " + fileName + " sent to client.");
+
+        } catch (Exception e) {
+            System.err.println("Error! " + e);
         }
     }
 }
