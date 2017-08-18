@@ -46,10 +46,6 @@ public class newServer implements Runnable {
                     pr1 = new PrintWriter(socket.getOutputStream(), true);
                     System.out.print("You>>");
                     in = br1.readLine();
-//                    if(in.isEmpty())
-//                    {
-//                        System.out.println();
-//                    }
                     if (in.startsWith("sendTCP")) {
                         String filename = in.split(" ")[1];
                         pr1.println(in);
@@ -68,8 +64,7 @@ public class newServer implements Runnable {
                 do {
                     br2 = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                     out = br2.readLine();
-                    if(!out.isEmpty())
-                    {
+                    if (!out.isEmpty()) {
                         System.out.println();
                     }
                     if (out.startsWith("sendUDP")) {
