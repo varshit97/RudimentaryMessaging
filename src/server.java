@@ -98,28 +98,32 @@ class clientThread extends Thread {
                 }
             }
 
+            //Input from client comes here
             while (true) {
                 String line = is.readLine();
                 if (line.startsWith("quit")) {
                     break;
                 }
                 String filename = null;
-                synchronized (this) {
-                    for (int i = 0; i < maxClientsCount; i++) {
-                        if (threads[i] != null && threads[i] != this && threads[i].clientName != null) {
-                            threads[i].os.println("<" + name + "> " + line);
-                        }
-                    }
-                }
                 if (line.startsWith("send")) {
-                    filename = line.split("\\s+")[1];
+                    name = line.split("\\s+")[1];
+                    String[] newN = name.split("/");
+                    filename = newN[newN.length - 1];
                     receiveFile();
                     synchronized (this) {
                         for (int i = 0; i < maxClientsCount; i++) {
                             if (threads[i] != null && threads[i] != this && threads[i].clientName != null) {
-                                sendFile(threads[i].clientSocket, filename);
+                                sendFile(threads[i].clientSocket, "/home/varshit/NetBeansProjects/Assignment/build/classes/received_from_client_" + filename);
                                 threads[i].os.println("file received");
                             }
+                        }
+                    }
+                    continue;
+                }
+                synchronized (this) {
+                    for (int i = 0; i < maxClientsCount; i++) {
+                        if (threads[i] != null && threads[i] != this && threads[i].clientName != null) {
+                            threads[i].os.println("<" + name + "> " + line);
                         }
                     }
                 }

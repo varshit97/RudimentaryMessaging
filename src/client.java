@@ -40,6 +40,7 @@ public class client implements Runnable {
             System.err.println("Couldn't get I/O for the connection to the host " + host);
         }
 
+        //Input at the client goes from here
         if (clientSocket != null && os != null && is != null) {
             try {
                 new Thread(new client()).start();
@@ -61,17 +62,15 @@ public class client implements Runnable {
         }
     }
 
+    //Response from the server comes here
     @Override
     public void run() {
         String responseLine;
         try {
             while ((responseLine = is.readLine()) != null) {
-//                String filename = null;
-//                System.out.println("sending " + responseLine);
                 System.out.println(responseLine);
-                if (responseLine.contains("file sent")) {
+                if (responseLine.equals("file received")) {
                     receiveFile("temp.txt");
-                    System.out.println("File received");
                 }
                 if (responseLine.indexOf("Bye") != -1) {
                     break;
@@ -93,6 +92,7 @@ public class client implements Runnable {
             fileName = clientData.readUTF();
             OutputStream output = new FileOutputStream(("received_from_server_" + fileName));
             long size = clientData.readLong();
+            System.out.println("Size - " + size);
             byte[] buffer = new byte[4096];
             while (size > 0 && (bytesRead = clientData.read(buffer, 0, (int) Math.min(buffer.length, size))) != -1) {
                 output.write(buffer, 0, bytesRead);
