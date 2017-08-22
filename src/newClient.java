@@ -1,6 +1,7 @@
 //Alice
 
 import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -45,7 +46,7 @@ public class newClient implements Runnable {
                     in = br1.readLine();
                     if (in.startsWith("sendUDP")) {
                         String filename = in.split(" ")[1];
-                        pr1.println(in);
+                        pr1.println(in + " " + new File(filename).length());
                         sendFileUDP(filename);
                         continue;
                     }
@@ -65,10 +66,11 @@ public class newClient implements Runnable {
                         System.out.println();
                     }
                     if (out.startsWith("sendUDP")) {
-                        String name = out.split(" ")[1];
-                        String[] temp = name.split("/");
+                        String filepath = out.split(" ")[1];
+                        String[] temp = filepath.split("/");
                         String filename = temp[temp.length - 1];
-                        receiveFileUDP(filename);
+                        String size = out.split(" ")[2];
+                        receiveFileUDP(filename, Integer.parseInt(size));
                         System.out.print("You>>");
                         t1.sleep(500);
                         continue;
@@ -96,6 +98,8 @@ public class newClient implements Runnable {
 
             File myFile = new File(fileName);
             byte[] mybytearray = new byte[(int) myFile.length()];
+            String end = "end";
+            byte[] sent = end.getBytes("UTF-8");
 
             FileInputStream fis = new FileInputStream(myFile);
             BufferedInputStream bis = new BufferedInputStream(fis);
@@ -109,29 +113,31 @@ public class newClient implements Runnable {
             clientSocket.send(sendPacket);
             clientSocket.close();
 
-            System.out.println("File " + fileName + " sent to Alice.");
+            System.out.println("File " + fileName + " sent to Bob.");
 
         } catch (Exception e) {
             System.err.println("Error! " + e);
         }
     }
 
-    public void receiveFileUDP(String fileName) {
+    public void receiveFileUDP(String fileName, int size) throws InterruptedException {
         try {
-            byte[] receiveData = new byte[4096];
-            DatagramSocket socket = new DatagramSocket(5000);
+            byte[] receiveData = new byte[size];
+            DatagramSocket sockety = new DatagramSocket(5001);
 
             FileWriter fw = new FileWriter(new File("received_from_bob_" + fileName));
-            while (receiveData != null) {
+            while (true) {
                 DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
-                socket.receive(receivePacket);
+                sockety.receive(receivePacket);
                 String sentence = new String(receivePacket.getData());
                 fw.write(sentence);
                 fw.flush();
+                t2.sleep(2);
+                break;
             }
             fw.flush();
             fw.close();
-            socket.close();
+            sockety.close();
 
             System.out.println("File " + fileName + " received from Bob.");
 
@@ -160,7 +166,7 @@ public class newClient implements Runnable {
             dos.write(mybytearray, 0, mybytearray.length);
             dos.flush();
 
-            System.out.println("File " + fileName + " sent to Alice.");
+            System.out.println("File " + fileName + " sent to Bob.");
 
         } catch (Exception e) {
             System.err.println("Error! " + e);

@@ -12,6 +12,8 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.io.RandomAccessFile;
+import static java.lang.Math.log;
 import java.net.*;
 
 public class newServer implements Runnable {
@@ -54,7 +56,7 @@ public class newServer implements Runnable {
                     }
                     if (in.startsWith("sendUDP")) {
                         String filename = in.split(" ")[1];
-                        pr1.println(in);
+                        pr1.println(in + " " + new File(filename).length());
                         sendFileUDP(filename);
                         continue;
                     }
@@ -69,10 +71,11 @@ public class newServer implements Runnable {
                     }
                     if (out.startsWith("sendUDP")) {
                         String name = out.split(" ")[1];
+                        String size = out.split(" ")[2];
                         String[] temp = name.split("/");
                         String filename = temp[temp.length - 1];
-                        receiveFileUDP(filename);
-                        t2.sleep(500);
+                        receiveFileUDP(filename, Integer.parseInt(size));
+//                        t2.sleep(200);
                         System.out.print("You>>");
                         continue;
                     }
@@ -96,6 +99,7 @@ public class newServer implements Runnable {
             File myFile = new File(fileName);
             byte[] mybytearray = new byte[(int) myFile.length()];
 
+            System.out.println("Size : " + myFile.length());
             FileInputStream fis = new FileInputStream(myFile);
             BufferedInputStream bis = new BufferedInputStream(fis);
 
@@ -104,7 +108,7 @@ public class newServer implements Runnable {
 
             DatagramSocket clientSocket = new DatagramSocket();
             InetAddress IPAddress = InetAddress.getByName("localhost");
-            DatagramPacket sendPacket = new DatagramPacket(mybytearray, mybytearray.length, IPAddress, 5000);
+            DatagramPacket sendPacket = new DatagramPacket(mybytearray, mybytearray.length, IPAddress, 5001);
             clientSocket.send(sendPacket);
             clientSocket.close();
 
@@ -115,22 +119,45 @@ public class newServer implements Runnable {
         }
     }
 
-    public void receiveFileUDP(String fileName) {
+    public static void progressPercentage(int remain, int total) {
+        if (remain > total) {
+            throw new IllegalArgumentException();
+        }
+        int maxBareSize = 10; // 10unit for 100%
+        int remainProcent = ((100 * remain) / total) / maxBareSize;
+        char defaultChar = ' ';
+        String icon = "=";
+        String bare = new String(new String(new char[maxBareSize]) + ">").replace('\0', defaultChar) + "]";
+        StringBuilder bareDone = new StringBuilder();
+        bareDone.append("[");
+        for (int i = 0; i < remainProcent; i++) {
+            bareDone.append(icon);
+        }
+        String bareRemain = bare.substring(remainProcent, bare.length());
+        System.out.print("\r" + bareDone + bareRemain + " " + remainProcent * 10 + "%");
+        if (remain == total) {
+            System.out.print("\n");
+        }
+    }
+
+    public void receiveFileUDP(String fileName, int size) throws InterruptedException {
         try {
-            byte[] receiveData = new byte[4096];
-            DatagramSocket socket = new DatagramSocket(5001);
+            byte[] receiveData = new byte[size];
+            DatagramSocket sockety = new DatagramSocket(5001);
 
             FileWriter fw = new FileWriter(new File("received_from_alice_" + fileName));
-            while (receiveData != null) {
+            while (true) {
                 DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
-                socket.receive(receivePacket);
+                sockety.receive(receivePacket);
                 String sentence = new String(receivePacket.getData());
                 fw.write(sentence);
                 fw.flush();
+                t2.sleep(2);
+                break;
             }
             fw.flush();
             fw.close();
-            socket.close();
+            sockety.close();
 
             System.out.println("File " + fileName + " received from Alice.");
 
