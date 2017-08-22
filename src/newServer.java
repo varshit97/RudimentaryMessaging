@@ -110,6 +110,10 @@ public class newServer implements Runnable {
             InetAddress IPAddress = InetAddress.getByName("localhost");
             DatagramPacket sendPacket = new DatagramPacket(mybytearray, mybytearray.length, IPAddress, 5001);
             clientSocket.send(sendPacket);
+            for (int i = 0; i <= myFile.length(); i = i + 10) {
+                progressPercentage(i, (int) myFile.length());
+                Thread.sleep(500);
+            }
             clientSocket.close();
 
             System.out.println("File " + fileName + " sent to Alice.");
@@ -119,7 +123,7 @@ public class newServer implements Runnable {
         }
     }
 
-    public static void progressPercentage(int remain, int total) {
+    public void progressPercentage(int remain, int total) {
         if (remain > total) {
             throw new IllegalArgumentException();
         }
@@ -152,6 +156,10 @@ public class newServer implements Runnable {
                 String sentence = new String(receivePacket.getData());
                 fw.write(sentence);
                 fw.flush();
+                for (int i = 0; i <= receiveData.length; i = i + 10) {
+                    progressPercentage(i, receiveData.length);
+                    Thread.sleep(500);
+                }
                 t2.sleep(2);
                 break;
             }
@@ -186,6 +194,11 @@ public class newServer implements Runnable {
             dos.write(mybytearray, 0, mybytearray.length);
             dos.flush();
 
+            for (int i = 0; i <= myFile.length(); i = i + 10) {
+                progressPercentage(i, (int) myFile.length());
+                Thread.sleep(500);
+            }
+
             System.out.println("File " + fileName + " sent to Alice.");
 
         } catch (Exception e) {
@@ -193,7 +206,7 @@ public class newServer implements Runnable {
         }
     }
 
-    public void receiveFileTCP() {
+    public void receiveFileTCP() throws InterruptedException {
         try {
             int bytesRead;
 
@@ -203,14 +216,18 @@ public class newServer implements Runnable {
             System.out.println(fileName);
             OutputStream output = new FileOutputStream(("received_from_alice_" + fileName));
             long size = clientData.readLong();
+            int newSize = (int) size;
             byte[] buffer = new byte[4096];
             while (size > 0 && (bytesRead = clientData.read(buffer, 0, (int) Math.min(buffer.length, size))) != -1) {
                 output.write(buffer, 0, bytesRead);
                 size -= bytesRead;
+                for (int i = 0; i <= newSize; i = i + 10) {
+                    progressPercentage(i, newSize);
+                    Thread.sleep(500);
+                }
             }
             output.flush();
             output.close();
-
             System.out.println("File " + fileName + " received from Alice.");
 
         } catch (IOException ex) {

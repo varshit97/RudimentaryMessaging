@@ -93,6 +93,27 @@ public class newClient implements Runnable {
 
     }
 
+    public void progressPercentage(int remain, int total) {
+        if (remain > total) {
+            throw new IllegalArgumentException();
+        }
+        int maxBareSize = 10; // 10unit for 100%
+        int remainProcent = ((100 * remain) / total) / maxBareSize;
+        char defaultChar = ' ';
+        String icon = "=";
+        String bare = new String(new String(new char[maxBareSize]) + ">").replace('\0', defaultChar) + "]";
+        StringBuilder bareDone = new StringBuilder();
+        bareDone.append("[");
+        for (int i = 0; i < remainProcent; i++) {
+            bareDone.append(icon);
+        }
+        String bareRemain = bare.substring(remainProcent, bare.length());
+        System.out.print("\r" + bareDone + bareRemain + " " + remainProcent * 10 + "%");
+        if (remain == total) {
+            System.out.print("\n");
+        }
+    }
+
     public void sendFileUDP(String fileName) {
         try {
 
@@ -111,6 +132,10 @@ public class newClient implements Runnable {
             InetAddress IPAddress = InetAddress.getByName("localhost");
             DatagramPacket sendPacket = new DatagramPacket(mybytearray, mybytearray.length, IPAddress, 5001);
             clientSocket.send(sendPacket);
+            for (int i = 0; i <= myFile.length(); i = i + 10) {
+                progressPercentage(i, (int) myFile.length());
+                Thread.sleep(500);
+            }
             clientSocket.close();
 
             System.out.println("File " + fileName + " sent to Bob.");
@@ -132,6 +157,10 @@ public class newClient implements Runnable {
                 String sentence = new String(receivePacket.getData());
                 fw.write(sentence);
                 fw.flush();
+                for (int i = 0; i <= receiveData.length; i = i + 10) {
+                    progressPercentage(i, receiveData.length);
+                    Thread.sleep(500);
+                }
                 t2.sleep(2);
                 break;
             }
@@ -165,7 +194,10 @@ public class newClient implements Runnable {
             dos.writeLong(mybytearray.length);
             dos.write(mybytearray, 0, mybytearray.length);
             dos.flush();
-
+            for (int i = 0; i <= myFile.length(); i = i + 10) {
+                progressPercentage(i, (int) myFile.length());
+                Thread.sleep(500);
+            }
             System.out.println("File " + fileName + " sent to Bob.");
 
         } catch (Exception e) {
@@ -173,7 +205,7 @@ public class newClient implements Runnable {
         }
     }
 
-    public void receiveFileTCP() {
+    public void receiveFileTCP() throws InterruptedException {
         try {
             int bytesRead;
 
@@ -183,9 +215,14 @@ public class newClient implements Runnable {
             OutputStream output = new FileOutputStream(("received_from_bob_" + fileName));
             long size = clientData.readLong();
             byte[] buffer = new byte[4096];
+            int newSize = (int) size;
             while (size > 0 && (bytesRead = clientData.read(buffer, 0, (int) Math.min(buffer.length, size))) != -1) {
                 output.write(buffer, 0, bytesRead);
                 size -= bytesRead;
+                for (int i = 0; i <= newSize; i = i + 10) {
+                    progressPercentage(i, newSize);
+                    Thread.sleep(500);
+                }
             }
             output.flush();
             output.close();
